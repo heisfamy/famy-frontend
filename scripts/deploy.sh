@@ -76,6 +76,8 @@ fi
 
 # Build the project
 print_status "Building project for production..."
+# Ensure environment variables are available during build
+export VITE_RENDER_URL=https://famy-backend.onrender.com
 npm run build
 
 # Check if build was successful

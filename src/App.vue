@@ -142,8 +142,8 @@ export default {
   
   setup() {
     // ===== CONFIGURATION =====
-    // Get API URL from environment variables with fallback to localhost
-    const apiUrl = import.meta.env.VITE_RENDER_URL || 'http://localhost:3000'
+    // Get API URL from environment variables with fallback to production URL
+    const apiUrl = import.meta.env.VITE_RENDER_URL || 'https://famy-backend.onrender.com'
     console.log('API URL configured:', apiUrl)
     
     

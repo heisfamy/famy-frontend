@@ -117,8 +117,8 @@ export default {
     // Track if image has failed to load
     const imageError = ref(false)
     
-    // Get API URL from environment variables with fallback to localhost
-    const apiUrl = import.meta.env.VITE_RENDER_URL || 'http://localhost:3000'
+    // Get API URL from environment variables with fallback to production URL
+    const apiUrl = import.meta.env.VITE_RENDER_URL || 'https://famy-backend.onrender.com'
     
     // Computed property to build the full image URL
     const imageUrl = computed(() => {
