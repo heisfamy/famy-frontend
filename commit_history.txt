@@ -1,0 +1,14 @@
+# vue-frontend commit history (example template) - replace timestamps with real ones
+
+1. init: create vue-frontend via Vite scaffold
+2. feat: basic layout and bootstrap integration
+3. feat: fetch GET /lessons and render with v-for
+4. feat: add sort controls (subject, location, price, spaces)
+5. feat: add Add to Cart button and basic cart state
+6. feat: cart page UI with remove functionality
+7. feat: checkout form validation (name/phone regex)
+8. feat: implement POST /orders and PUT /lessons calls on checkout
+9. feat: show confirmation after successful checkout
+10. chore: add Font Awesome and image display via RENDER_URL/images/
+11. test: add manual testing steps and build script
+12. docs: add README with GitHub Pages deploy steps and link to backend
