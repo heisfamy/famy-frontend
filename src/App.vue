@@ -1,24 +1,43 @@
+<!-- 
+  App.vue - Main Application Component
+  This is the root component that manages the entire application state.
+  It coordinates between different views (lessons, cart, checkout) and handles
+  all API communication with the backend.
+  
+  Component Structure:
+  - Header: Always visible with cart button
+  - Main Content: Switches between LessonsList, Cart, and Checkout components
+  - Success Modal: Shows after successful order
+-->
 <template>
-  <div class="app">
-    <!-- Header -->
+  <div id="app" class="app">
+    <!-- Application Header - Always Visible -->
     <header class="bg-primary text-white shadow-lg">
       <div class="container-fluid py-3">
         <div class="row align-items-center">
+          <!-- Logo and Title -->
           <div class="col-md-6">
             <h1 class="h3 mb-0">
               <i class="fas fa-graduation-cap me-2"></i>
               Course Management System
             </h1>
           </div>
+          <!-- Cart Button -->
           <div class="col-md-6 text-end">
+            <!-- Cart Button with Badge -->
             <button 
               class="btn btn-light position-relative"
               :disabled="cart.length === 0"
-              @click="showCart = true"
+              @click="handleCartClick"
+              title="View shopping cart"
             >
               <i class="fas fa-shopping-cart me-2"></i>
               Cart
-              <span v-if="cart.length > 0" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+              <!-- Badge showing cart item count -->
+              <span 
+                v-if="cart.length > 0" 
+                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+              >
                 {{ totalCartItems }}
               </span>
             </button>
@@ -27,265 +46,44 @@
       </div>
     </header>
 
-    <!-- Main Content -->
+    <!-- Main Content Area -->
     <main class="container-fluid py-4">
-      <div v-if="!showCart && !showCheckout">
-        <!-- Search and Sort Controls -->
-        <div class="row mb-4">
-          <div class="col-md-6">
-            <div class="input-group">
-              <span class="input-group-text"><i class="fas fa-search"></i></span>
-              <input 
-                v-model="searchQuery"
-                type="text" 
-                class="form-control" 
-                placeholder="Search lessons..."
-                @input="searchLessons"
-              >
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="d-flex gap-2">
-              <select v-model="sortBy" class="form-select" @change="sortLessons">
-                <option value="">Sort by...</option>
-                <option value="subject">Subject</option>
-                <option value="location">Location</option>
-                <option value="price">Price</option>
-                <option value="spaces">Available Spaces</option>
-              </select>
-              <button 
-                class="btn btn-outline-secondary" 
-                @click="sortOrder = sortOrder === 'asc' ? 'desc' : 'asc'; sortLessons()"
-                :disabled="!sortBy"
-              >
-                <i :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Lessons Grid -->
-        <div v-if="loading" class="text-center py-5">
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
-          </div>
-        </div>
-        
-        <div v-else-if="error" class="alert alert-danger">
-          {{ error }}
-        </div>
-        
-        <div v-else class="row g-4">
-          <div 
-            v-for="lesson in displayedLessons" 
-            :key="lesson._id"
-            class="col-md-6 col-lg-4 col-xl-3"
-          >
-            <div class="card h-100 shadow-sm hover-shadow">
-              <img 
-                v-if="lesson.image" 
-                :src="`${apiUrl}/images/${lesson.image}`" 
-                class="card-img-top" 
-                :alt="lesson.subject"
-                style="height: 200px; object-fit: cover;"
-                @error="handleImageError($event, lesson)"
-              >
-              <div v-else class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
-                <i :class="lesson.icon || 'fas fa-book'" class="fa-4x text-muted"></i>
-              </div>
-              
-              <div class="card-body">
-                <h5 class="card-title">
-                  <i :class="lesson.icon || 'fas fa-book'" class="me-2 text-primary"></i>
-                  {{ lesson.subject }}
-                </h5>
-                <p class="card-text">
-                  <i class="fas fa-map-marker-alt text-danger me-2"></i>
-                  {{ lesson.location }}
-                </p>
-                <p class="card-text">
-                  <i class="fas fa-pound-sign text-success me-2"></i>
-                  <strong>£{{ lesson.price }}</strong> per lesson
-                </p>
-                <p class="card-text">
-                  <i class="fas fa-users text-info me-2"></i>
-                  <span :class="{'text-danger': getAvailableSpaces(lesson._id) <= 2}">
-                    {{ getAvailableSpaces(lesson._id) }} spaces available
-                  </span>
-                </p>
-                
-                <button 
-                  class="btn btn-primary w-100"
-                  :disabled="getAvailableSpaces(lesson._id) === 0"
-                  @click="addToCart(lesson)"
-                >
-                  <i class="fas fa-cart-plus me-2"></i>
-                  {{ getAvailableSpaces(lesson._id) === 0 ? 'Fully Booked' : 'Add to Cart' }}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
+      <!-- Lessons List View (Default) -->
+      <LessonsList 
+        v-if="!showCart && !showCheckout"
+        :lessons="lessons"
+        :cart="cart"
+        :loading="loading"
+        :error="error"
+        @add-to-cart="addToCart"
+      />
+      
       <!-- Cart View -->
-      <div v-else-if="showCart && !showCheckout" class="row">
-        <div class="col-lg-8 mx-auto">
-          <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-              <h3 class="mb-0">
-                <i class="fas fa-shopping-cart me-2"></i>
-                Shopping Cart
-              </h3>
-            </div>
-            <div class="card-body">
-              <div v-if="cart.length === 0" class="text-center py-5">
-                <i class="fas fa-shopping-cart fa-4x text-muted mb-3"></i>
-                <p class="text-muted">Your cart is empty</p>
-                <button class="btn btn-primary" @click="showCart = false">
-                  Continue Shopping
-                </button>
-              </div>
-              
-              <div v-else>
-                <div v-for="item in cart" :key="item.id" class="mb-3">
-                  <div class="row align-items-center">
-                    <div class="col-md-6">
-                      <h5 class="mb-1">{{ item.lesson.subject }}</h5>
-                      <p class="text-muted mb-0">
-                        <i class="fas fa-map-marker-alt me-1"></i> {{ item.lesson.location }}
-                      </p>
-                    </div>
-                    <div class="col-md-3">
-                      <p class="mb-0">£{{ item.lesson.price }} x {{ item.quantity }}</p>
-                      <p class="fw-bold mb-0">£{{ item.lesson.price * item.quantity }}</p>
-                    </div>
-                    <div class="col-md-3 text-end">
-                      <button 
-                        class="btn btn-sm btn-danger"
-                        @click="removeFromCart(item.id)"
-                      >
-                        <i class="fas fa-trash"></i>
-                      </button>
-                    </div>
-                  </div>
-                  <hr>
-                </div>
-                
-                <div class="row mt-4">
-                  <div class="col-md-6">
-                    <button class="btn btn-secondary" @click="showCart = false">
-                      <i class="fas fa-arrow-left me-2"></i>
-                      Continue Shopping
-                    </button>
-                  </div>
-                  <div class="col-md-6 text-end">
-                    <h4 class="mb-3">Total: £{{ cartTotal }}</h4>
-                    <button class="btn btn-success" @click="showCheckout = true; showCart = false">
-                      <i class="fas fa-credit-card me-2"></i>
-                      Checkout
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
+      <Cart 
+        v-if="showCart && !showCheckout"
+        :cart="cart"
+        :show="showCart"
+        @continue-shopping="handleContinueShopping"
+        @remove-item="removeFromCart"
+        @proceed-to-checkout="handleProceedToCheckout"
+      />
+      
       <!-- Checkout View -->
-      <div v-else-if="showCheckout" class="row">
-        <div class="col-lg-6 mx-auto">
-          <div class="card shadow">
-            <div class="card-header bg-success text-white">
-              <h3 class="mb-0">
-                <i class="fas fa-credit-card me-2"></i>
-                Checkout
-              </h3>
-            </div>
-            <div class="card-body">
-              <form @submit.prevent="processCheckout">
-                <div class="mb-3">
-                  <label class="form-label">Name</label>
-                  <input 
-                    v-model="customerName"
-                    type="text" 
-                    class="form-control" 
-                    :class="{'is-invalid': nameError}"
-                    placeholder="Enter your full name"
-                    @input="validateName"
-                    required
-                  >
-                  <div v-if="nameError" class="invalid-feedback">
-                    {{ nameError }}
-                  </div>
-                </div>
-                
-                <div class="mb-3">
-                  <label class="form-label">Phone</label>
-                  <input 
-                    v-model="customerPhone"
-                    type="tel" 
-                    class="form-control"
-                    :class="{'is-invalid': phoneError}" 
-                    placeholder="Enter your phone number"
-                    @input="validatePhone"
-                    required
-                  >
-                  <div v-if="phoneError" class="invalid-feedback">
-                    {{ phoneError }}
-                  </div>
-                </div>
-                
-                <hr>
-                
-                <h5 class="mb-3">Order Summary</h5>
-                <div v-for="item in cart" :key="item.id" class="mb-2">
-                  <div class="d-flex justify-content-between">
-                    <span>{{ item.lesson.subject }} (x{{ item.quantity }})</span>
-                    <span>£{{ item.lesson.price * item.quantity }}</span>
-                  </div>
-                </div>
-                
-                <hr>
-                
-                <div class="d-flex justify-content-between mb-4">
-                  <strong>Total:</strong>
-                  <strong>£{{ cartTotal }}</strong>
-                </div>
-                
-                <div class="d-grid gap-2">
-                  <button 
-                    type="submit" 
-                    class="btn btn-success"
-                    :disabled="!isCheckoutValid || processing"
-                  >
-                    <span v-if="processing">
-                      <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                      Processing...
-                    </span>
-                    <span v-else>
-                      <i class="fas fa-check me-2"></i>
-                      Place Order
-                    </span>
-                  </button>
-                  <button 
-                    type="button" 
-                    class="btn btn-secondary"
-                    @click="showCheckout = false; showCart = true"
-                    :disabled="processing"
-                  >
-                    Back to Cart
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Success Message -->
-      <div v-if="orderSuccess" class="position-fixed top-50 start-50 translate-middle" style="z-index: 1050;">
+      <Checkout 
+        v-if="showCheckout"
+        :cart="cart"
+        :show="showCheckout"
+        @back-to-cart="handleBackToCart"
+        @order-success="handleOrderSuccess"
+        @order-error="handleOrderError"
+      />
+      
+      <!-- Success Modal -->
+      <div 
+        v-if="orderSuccess" 
+        class="position-fixed top-50 start-50 translate-middle" 
+        style="z-index: 1050;"
+      >
         <div class="card shadow-lg">
           <div class="card-body text-center p-5">
             <i class="fas fa-check-circle text-success fa-4x mb-3"></i>
@@ -297,280 +95,283 @@
           </div>
         </div>
       </div>
+      
+      <!-- Error Alert -->
+      <div 
+        v-if="globalError" 
+        class="position-fixed top-0 start-50 translate-middle-x mt-3" 
+        style="z-index: 1040;"
+      >
+        <div class="alert alert-danger alert-dismissible" role="alert">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          {{ globalError }}
+          <button 
+            type="button" 
+            class="btn-close" 
+            @click="globalError = ''"
+            aria-label="Close"
+          ></button>
+        </div>
+      </div>
     </main>
   </div>
 </template>
 
 <script>
+// Import Vue composition API functions
 import { ref, computed, onMounted } from 'vue'
 
+// Import child components
+import LessonsList from './components/LessonsList.vue'
+import Cart from './components/Cart.vue'
+import Checkout from './components/Checkout.vue'
+
+/**
+ * Main Application Component
+ * Manages global state and coordinates between different views
+ */
 export default {
   name: 'App',
+  
+  // Register child components
+  components: {
+    LessonsList,
+    Cart,
+    Checkout
+  },
+  
   setup() {
-    // API Configuration
+    // ===== CONFIGURATION =====
+    // Get API URL from environment variables with fallback to localhost
     const apiUrl = import.meta.env.VITE_RENDER_URL || 'http://localhost:3000'
+    console.log('API URL configured:', apiUrl)
     
-    // State
-    const lessons = ref([])
-    const displayedLessons = ref([])
-    const cart = ref([])
-    const loading = ref(false)
-    const error = ref('')
-    const showCart = ref(false)
-    const showCheckout = ref(false)
-    const orderSuccess = ref(false)
-    const processing = ref(false)
     
-    // Search and Sort
-    const searchQuery = ref('')
-    const sortBy = ref('')
-    const sortOrder = ref('asc')
+    // ===== STATE MANAGEMENT =====
+    // Lesson data
+    const lessons = ref([])           // All lessons from API
+    const loading = ref(false)        // Loading state
+    const error = ref('')             // Error messages for lessons
+    const globalError = ref('')       // Global error messages
     
-    // Customer Info
-    const customerName = ref('')
-    const customerPhone = ref('')
-    const nameError = ref('')
-    const phoneError = ref('')
+    // Cart data
+    const cart = ref([])              // Cart items array
     
-    // Computed
+    // View control
+    const showCart = ref(false)       // Show cart view
+    const showCheckout = ref(false)   // Show checkout view
+    const orderSuccess = ref(false)   // Show success modal
+    
+    // ===== COMPUTED PROPERTIES =====
+    /**
+     * Calculate total number of items in cart
+     * Used for the cart badge in header
+     */
     const totalCartItems = computed(() => {
       return cart.value.reduce((sum, item) => sum + item.quantity, 0)
     })
     
-    const cartTotal = computed(() => {
-      return cart.value.reduce((sum, item) => sum + (item.lesson.price * item.quantity), 0)
-    })
-    
-    const isCheckoutValid = computed(() => {
-      return customerName.value && customerPhone.value && 
-             !nameError.value && !phoneError.value && cart.value.length > 0
-    })
-    
-    // Methods
+    // ===== API METHODS =====
+    /**
+     * Fetch all lessons from the backend API
+     * Called on component mount and after successful order
+     */
     const fetchLessons = async () => {
+      console.log('Fetching lessons from API...')
       loading.value = true
       error.value = ''
       
       try {
+        // Make API call to get all lessons
         const response = await fetch(`${apiUrl}/lessons`)
-        if (!response.ok) throw new Error('Failed to fetch lessons')
         
+        // Check if response is OK
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+        
+        // Parse JSON response
         const data = await response.json()
+        console.log(`Fetched ${data.length} lessons successfully`)
+        
+        // Update state with fetched lessons
         lessons.value = data
-        displayedLessons.value = data
       } catch (err) {
-        error.value = 'Failed to load lessons. Please try again later.'
+        // Handle errors
+        error.value = 'Failed to load lessons. Please check your connection and try again.'
         console.error('Error fetching lessons:', err)
+        globalError.value = err.message
       } finally {
+        // Always stop loading
         loading.value = false
       }
     }
     
-    const searchLessons = async () => {
-      if (!searchQuery.value) {
-        displayedLessons.value = lessons.value
-        return
-      }
-      
-      try {
-        const response = await fetch(`${apiUrl}/search?q=${encodeURIComponent(searchQuery.value)}`)
-        if (!response.ok) throw new Error('Search failed')
-        
-        const data = await response.json()
-        displayedLessons.value = data.results || []
-      } catch (err) {
-        console.error('Search error:', err)
-        displayedLessons.value = lessons.value
-      }
-    }
-    
-    const sortLessons = () => {
-      if (!sortBy.value) {
-        displayedLessons.value = [...lessons.value]
-        return
-      }
-      
-      const sorted = [...displayedLessons.value].sort((a, b) => {
-        let aVal = a[sortBy.value]
-        let bVal = b[sortBy.value]
-        
-        if (typeof aVal === 'string') {
-          aVal = aVal.toLowerCase()
-          bVal = bVal.toLowerCase()
-        }
-        
-        if (sortOrder.value === 'asc') {
-          return aVal > bVal ? 1 : -1
-        } else {
-          return aVal < bVal ? 1 : -1
-        }
-      })
-      
-      displayedLessons.value = sorted
-    }
-    
-    const getAvailableSpaces = (lessonId) => {
-      const lesson = lessons.value.find(l => l._id === lessonId)
-      const cartItem = cart.value.find(item => item.lesson._id === lessonId)
-      const spacesInCart = cartItem ? cartItem.quantity : 0
-      return lesson ? lesson.spaces - spacesInCart : 0
-    }
-    
+    // ===== CART MANAGEMENT =====
+    /**
+     * Add a lesson to the cart
+     * If lesson already exists in cart, increment quantity
+     * @param {Object} lesson - The lesson object to add
+     */
     const addToCart = (lesson) => {
-      const availableSpaces = getAvailableSpaces(lesson._id)
-      if (availableSpaces === 0) return
+      console.log(`Adding lesson to cart: ${lesson.subject}`)
       
+      // Check if lesson already exists in cart
       const existingItem = cart.value.find(item => item.lesson._id === lesson._id)
       
       if (existingItem) {
+        // Increment quantity if already in cart
         existingItem.quantity++
+        console.log(`Increased quantity for ${lesson.subject} to ${existingItem.quantity}`)
       } else {
+        // Add new item to cart
         cart.value.push({
-          id: Date.now(),
+          id: Date.now(),  // Unique ID for cart item
           lesson: lesson,
           quantity: 1
         })
+        console.log(`Added ${lesson.subject} to cart`)
       }
     }
     
+    /**
+     * Remove an item from the cart
+     * @param {number} itemId - The unique ID of the cart item to remove
+     */
     const removeFromCart = (itemId) => {
-      cart.value = cart.value.filter(item => item.id !== itemId)
-    }
-    
-    const validateName = () => {
-      if (!/^[a-zA-Z\s]+$/.test(customerName.value)) {
-        nameError.value = 'Name must contain only letters and spaces'
-      } else {
-        nameError.value = ''
+      const item = cart.value.find(i => i.id === itemId)
+      if (item) {
+        console.log(`Removing ${item.lesson.subject} from cart`)
+        cart.value = cart.value.filter(item => item.id !== itemId)
       }
     }
     
-    const validatePhone = () => {
-      if (!/^\d+$/.test(customerPhone.value)) {
-        phoneError.value = 'Phone must contain only numbers'
-      } else {
-        phoneError.value = ''
-      }
+    // ===== VIEW NAVIGATION =====
+    /**
+     * Handle cart button click
+     */
+    const handleCartClick = () => {
+      console.log('Opening cart view')
+      showCart.value = true
+      showCheckout.value = false
     }
     
-    const processCheckout = async () => {
-      if (!isCheckoutValid.value) return
+    /**
+     * Handle continue shopping from cart
+     */
+    const handleContinueShopping = () => {
+      console.log('Returning to lessons view')
+      showCart.value = false
+      showCheckout.value = false
+    }
+    
+    /**
+     * Handle proceed to checkout from cart
+     */
+    const handleProceedToCheckout = () => {
+      console.log('Proceeding to checkout')
+      showCart.value = false
+      showCheckout.value = true
+    }
+    
+    /**
+     * Handle back to cart from checkout
+     */
+    const handleBackToCart = () => {
+      console.log('Going back to cart')
+      showCart.value = true
+      showCheckout.value = false
+    }
+    
+    /**
+     * Handle successful order
+     * @param {Object} orderData - Order details from checkout
+     */
+    const handleOrderSuccess = async (orderData) => {
+      console.log('Order completed successfully!', orderData)
       
-      processing.value = true
-      
-      try {
-        // Prepare order data
-        const lessonIDs = cart.value.map(item => item.lesson._id)
-        const numSpaces = cart.value.map(item => item.quantity)
-        
-        // Create order
-        const orderResponse = await fetch(`${apiUrl}/orders`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: customerName.value,
-            phone: customerPhone.value,
-            lessonIDs,
-            numSpaces
-          })
-        })
-        
-        if (!orderResponse.ok) throw new Error('Failed to create order')
-        
-        // Update spaces for each lesson
-        for (const item of cart.value) {
-          const lesson = lessons.value.find(l => l._id === item.lesson._id)
-          if (lesson) {
-            const newSpaces = lesson.spaces - item.quantity
-            
-            await fetch(`${apiUrl}/lessons/${item.lesson._id}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ spaces: newSpaces })
-            })
-            
-            // Update local state
-            lesson.spaces = newSpaces
-          }
+      // Update lesson spaces locally
+      for (const item of cart.value) {
+        const lesson = lessons.value.find(l => l._id === item.lesson._id)
+        if (lesson) {
+          lesson.spaces = lesson.spaces - item.quantity
         }
-        
-        orderSuccess.value = true
-        showCheckout.value = false
-      } catch (err) {
-        error.value = 'Failed to process order. Please try again.'
-        console.error('Checkout error:', err)
-      } finally {
-        processing.value = false
       }
+      
+      // Show success message
+      orderSuccess.value = true
+      showCheckout.value = false
+      
+      // Clear cart
+      cart.value = []
     }
     
+    /**
+     * Handle order error
+     * @param {string} errorMessage - Error message to display
+     */
+    const handleOrderError = (errorMessage) => {
+      console.error('Order error:', errorMessage)
+      globalError.value = errorMessage
+    }
+    
+    /**
+     * Reset app to initial state after successful order
+     */
     const resetApp = () => {
-      cart.value = []
-      customerName.value = ''
-      customerPhone.value = ''
-      nameError.value = ''
-      phoneError.value = ''
+      console.log('Resetting application state')
+      
+      // Reset all state
       showCart.value = false
       showCheckout.value = false
       orderSuccess.value = false
-      searchQuery.value = ''
-      sortBy.value = ''
-      sortOrder.value = 'asc'
+      globalError.value = ''
+      
+      // Fetch fresh lesson data
       fetchLessons()
     }
     
-    const handleImageError = (event, lesson) => {
-      // Fallback to icon on image error
-      event.target.style.display = 'none'
-      event.target.parentElement.innerHTML = `
-        <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
-          <i class="${lesson.icon || 'fas fa-book'} fa-4x text-muted"></i>
-        </div>
-      `
-    }
-    
-    // Lifecycle
+    // ===== LIFECYCLE =====
+    /**
+     * On component mount, fetch lessons from API
+     */
     onMounted(() => {
+      console.log('App component mounted')
       fetchLessons()
     })
     
+    // ===== RETURN PUBLIC API =====
+    // Return all reactive properties and methods for template use
     return {
       // State
-      apiUrl,
       lessons,
-      displayedLessons,
       cart,
       loading,
       error,
+      globalError,
       showCart,
       showCheckout,
       orderSuccess,
-      processing,
-      searchQuery,
-      sortBy,
-      sortOrder,
-      customerName,
-      customerPhone,
-      nameError,
-      phoneError,
       
       // Computed
       totalCartItems,
-      cartTotal,
-      isCheckoutValid,
       
-      // Methods
-      fetchLessons,
-      searchLessons,
-      sortLessons,
-      getAvailableSpaces,
+      // Methods - Cart
       addToCart,
       removeFromCart,
-      validateName,
-      validatePhone,
-      processCheckout,
-      resetApp,
-      handleImageError
+      
+      // Methods - Navigation
+      handleCartClick,
+      handleContinueShopping,
+      handleProceedToCheckout,
+      handleBackToCart,
+      
+      // Methods - Order
+      handleOrderSuccess,
+      handleOrderError,
+      
+      // Methods - App
+      resetApp
     }
   }
 }
