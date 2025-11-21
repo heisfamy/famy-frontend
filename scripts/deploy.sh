@@ -76,9 +76,11 @@ fi
 
 # Build the project
 print_status "Building project for production..."
-# Ensure environment variables are available during build
+# Ensure production environment variables are used during build
+cp .env.production .env.tmp
 export VITE_RENDER_URL=https://famy-backend.onrender.com
 npm run build
+rm -f .env.tmp
 
 # Check if build was successful
 if [ ! -d "dist" ]; then
